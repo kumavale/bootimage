@@ -1,7 +1,7 @@
 //! Provides a function for running a disk image in QEMU.
 
 use crate::{args::RunnerArgs, config::Config};
-use std::{io, path::Path, process, time::Duration};
+use std::{io, env, path::Path, process, time::Duration};
 use thiserror::Error;
 use wait_timeout::ChildExt;
 
@@ -20,7 +20,13 @@ pub fn run(
     let mut run_command: Vec<_> = config
         .run_command
         .iter()
-        .map(|arg| arg.replace("{}", &format!("{}", image_path.display())))
+        .map(|arg| {
+            let current_dir = env::current_dir().expect("invalid current working directory");
+            arg.replace("{}", &format!("{}", match image_path.strip_prefix(current_dir) {
+                Ok(path) => path,
+                Err(_) => image_path,
+            }.display()))
+        })
         .collect();
     if is_test {
         if config.test_no_reboot {
